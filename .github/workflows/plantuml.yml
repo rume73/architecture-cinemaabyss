@@ -40,8 +40,7 @@ jobs:
 
     - name: Generate Diagrams
       run: |
-        mkdir -p diagrams/generated
-        java -jar plantuml.jar -tpng diagrams/container/*.puml -o generated/ || true
+        java -jar plantuml.jar -tpng diagrams/container/*.puml || true
 
     - name: Commit Diagrams
       run: |
