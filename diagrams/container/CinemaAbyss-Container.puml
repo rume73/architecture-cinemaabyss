@@ -1,0 +1,56 @@
+@startuml
+title CinemaAbyss - Container Diagram C4
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Person(user, "User", "Streaming service consumer\nWatches content\nManages favorites")
+Person(admin, "Administrator", "System administrator\nManages content\nMonitors system")
+
+System_Boundary(cinemaAbyss, "CinemaAbyss System") {
+
+  Container(APIGateway, "API Gateway / Proxy", "Nginx + Kubernetes Ingress", "Single entry point\nRequest routing\nSSL termination\nRate limiting\nTraffic splitting (10% to Movies Service)")
+
+  Container(Monolith, "Monolith", "Go", "User management\nAuthentication\nPayments\nSubscriptions\nViews\nFavorites\nMovies (legacy)\nGenres (legacy)\nRatings (legacy)")
+
+  Container(MovieService, "Movies Service", "Go", "Movie metadata management\nGenres management\nRatings management\nFavorites management\nMovie search")
+
+  Container(EventsService, "Events Service", "Go", "Event processing\nEvent storage\nEvent delivery\nAnalytics events\nBusiness events")
+
+  Container(Kafka, "Kafka", "Apache Kafka", "Event streaming\nAsync communication\nEvent bus")
+
+  Container(MovieDB, "Movies Database", "PostgreSQL", "Movies\nGenres\nRatings\nFavorites")
+
+  Container(EventsDB, "Events Database", "PostgreSQL", "Events storage\nEvent metadata\nDelivery status")
+}
+
+System_Ext(RecommendationSystem, "Recommendation System", "External recommendation engine\nContent suggestions")
+System_Ext(PaymentGateway, "Payment Gateway", "External payment provider\nCredit card processing")
+System_Ext(CDN, "Content Delivery Network", "Video streaming\nContent distribution")
+
+Rel(user, APIGateway, "Uses", "HTTPS")
+Rel(admin, APIGateway, "Administers", "HTTPS")
+
+Rel(APIGateway, Monolith, "Routes 90% traffic", "/api/*")
+Rel(APIGateway, MovieService, "Routes 10% traffic", "/api/movies/*\n/api/movies/{id}\n/api/genres/*\n/api/ratings/*")
+
+Rel(Monolith, MovieDB, "Reads/Writes (legacy)", "SQL")
+Rel(MovieService, MovieDB, "Reads/Writes (new)", "SQL")
+
+Rel(Monolith, Kafka, "Publishes events", "User events\nPayment events\nSubscription events\nView events")
+Rel(MovieService, Kafka, "Publishes events", "Movie events\nRating events\nFavorite events")
+Rel(EventsService, Kafka, "Publishes events", "Processed events\nBusiness events\nAnalytics events")
+
+Rel(Kafka, Monolith, "Consumes events", "Movie events\nRating events\nFavorite events")
+Rel(Kafka, MovieService, "Consumes events", "User events\nPayment events\nSubscription events\nView events")
+Rel(Kafka, EventsService, "Consumes events", "All events")
+
+Rel(EventsService, EventsDB, "Reads/Writes", "SQL")
+
+Rel(Monolith, RecommendationSystem, "Requests recommendations", "REST API")
+Rel(Monolith, PaymentGateway, "Processes payments", "REST API")
+Rel(Monolith, CDN, "Streams content", "HTTPS")
+Rel(MovieService, CDN, "Streams content", "HTTPS")
+
+@enduml
