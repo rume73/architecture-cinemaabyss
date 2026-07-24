@@ -35,6 +35,13 @@ jobs:
           echo "Waiting for services to be ready..."
           sleep 30
 
+      - name: Check containers status
+        run: |
+          docker compose ps
+          docker compose logs --tail=50 monolith
+          docker compose logs --tail=50 movies-service
+          docker compose logs --tail=50 proxy-service
+
       - name: Check services health
         run: |
           echo "Checking services health..."
