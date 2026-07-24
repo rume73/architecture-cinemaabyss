@@ -33,14 +33,23 @@ jobs:
         run: |
           docker compose up -d --build
           echo "Waiting for services to be ready..."
-          sleep 30
+          sleep 60
 
       - name: Check containers status
         run: |
+          echo "=== Container Status ==="
           docker compose ps
-          docker compose logs --tail=50 monolith
-          docker compose logs --tail=50 movies-service
-          docker compose logs --tail=50 proxy-service
+          echo ""
+          echo "=== All Logs ==="
+          docker compose logs --tail=50
+
+      - name: Check Kafka logs
+        run: |
+          echo "=== Kafka Logs ==="
+          docker compose logs kafka
+          echo ""
+          echo "=== Zookeeper Logs ==="
+          docker compose logs zookeeper
 
       - name: Check services health
         run: |
