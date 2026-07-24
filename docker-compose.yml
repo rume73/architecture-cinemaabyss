@@ -24,19 +24,16 @@ services:
   zookeeper:
     image: wurstmeister/zookeeper:latest
     container_name: cinemaabyss-zookeeper
+    platform: linux/amd64
     ports:
       - "2181:2181"
     networks:
       - cinemaabyss-network
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   kafka:
     image: wurstmeister/kafka:2.13-2.7.0
     container_name: cinemaabyss-kafka
+    platform: linux/amd64
     depends_on:
       - zookeeper
     ports:
@@ -51,11 +48,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - cinemaabyss-network
-    healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
   monolith:
     build:
@@ -72,7 +64,6 @@ services:
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
     networks:
       - cinemaabyss-network
-    restart: on-failure
 
   movies-service:
     build:
@@ -89,7 +80,6 @@ services:
       DB_CONNECTION_STRING: postgres://postgres:postgres_password@postgres:5432/cinemaabyss?sslmode=disable
     networks:
       - cinemaabyss-network
-    restart: on-failure
 
   events-service:
     build:
@@ -97,10 +87,8 @@ services:
       dockerfile: Dockerfile
     container_name: cinemaabyss-events-service
     depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
+      - postgres
+      - kafka
     ports:
       - "8082:8082"
     environment:
@@ -116,12 +104,9 @@ services:
       dockerfile: Dockerfile
     container_name: cinemaabyss-proxy-service
     depends_on:
-      monolith:
-        condition: service_started
-      movies-service:
-        condition: service_started
-      events-service:
-        condition: service_started
+      - monolith
+      - movies-service
+      - events-service
     ports:
       - "8000:8000"
     environment:
@@ -133,7 +118,6 @@ services:
       MOVIES_MIGRATION_PERCENT: "50"
     networks:
       - cinemaabyss-network
-    restart: on-failure
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
