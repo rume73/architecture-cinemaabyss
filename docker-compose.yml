@@ -20,32 +20,21 @@ services:
       retries: 10
     networks:
       - cinemaabyss-network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: cinemaabyss-zookeeper
-    platform: linux/arm64
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-      KAFKA_OPTS: -Xmx128M -Xms128M
     ports:
       - "2181:2181"
     networks:
       - cinemaabyss-network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: cinemaabyss-kafka
-    platform: linux/arm64
     depends_on:
       - zookeeper
     ports:
@@ -56,19 +45,13 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_HEAP_OPTS: -Xmx256M -Xms128M
-      KAFKA_JVM_PERFORMANCE_OPTS: -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+DisableExplicitGC
     networks:
       - cinemaabyss-network
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 30s
       timeout: 10s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+      retries: 10
 
   monolith:
     build:
@@ -86,10 +69,6 @@ services:
     networks:
       - cinemaabyss-network
     restart: on-failure
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   movies-service:
     build:
@@ -107,10 +86,6 @@ services:
     networks:
       - cinemaabyss-network
     restart: on-failure
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   events-service:
     build:
@@ -130,10 +105,6 @@ services:
     networks:
       - cinemaabyss-network
     restart: on-failure
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   proxy-service:
     build:
@@ -159,15 +130,10 @@ services:
     networks:
       - cinemaabyss-network
     restart: on-failure
-    deploy:
-      resources:
-        limits:
-          memory: 128M
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: cinemaabyss-kafka-ui
-    platform: linux/arm64
     depends_on:
       - kafka
     ports:
@@ -178,10 +144,6 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
     networks:
       - cinemaabyss-network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
 volumes:
   postgres-data:

@@ -6,15 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to run tests against'
-        required: true
-        default: 'docker'
-        type: choice
-        options:
-          - local
-          - docker
 
 jobs:
   api-tests:
@@ -29,7 +20,7 @@ jobs:
         run: |
           docker compose version
 
-      - name: Start services with Docker Compose
+      - name: Start all services
         run: |
           docker compose up -d --build
           echo "Waiting for services to be ready..."
@@ -40,16 +31,23 @@ jobs:
           echo "=== Container Status ==="
           docker compose ps
           echo ""
-          echo "=== All Logs ==="
-          docker compose logs --tail=50
-
-      - name: Check Kafka logs
-        run: |
           echo "=== Kafka Logs ==="
-          docker compose logs kafka
+          docker compose logs --tail=30 kafka
           echo ""
           echo "=== Zookeeper Logs ==="
-          docker compose logs zookeeper
+          docker compose logs --tail=30 zookeeper
+
+      - name: Wait for Kafka
+        run: |
+          echo "Waiting for Kafka to be ready..."
+          for i in {1..20}; do
+            if docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1; then
+              echo "Kafka is ready!"
+              break
+            fi
+            echo "Waiting for Kafka... ($i/20)"
+            sleep 5
+          done
 
       - name: Check services health
         run: |
@@ -66,7 +64,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: tests/postman/package-lock.json
 
-      - name: Install Newman and dependencies
+      - name: Install Newman
         working-directory: tests/postman
         run: npm install
 
