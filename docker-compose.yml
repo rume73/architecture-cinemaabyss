@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:14
     container_name: cinemaabyss-postgres
@@ -18,23 +17,23 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - cinemaabyss-network
 
-  # ZooKeeper for Kafka
   zookeeper:
     image: wurstmeister/zookeeper:latest
     container_name: cinemaabyss-zookeeper
+    platform: linux/amd64
     ports:
       - "2181:2181"
     networks:
       - cinemaabyss-network
 
-  # Kafka
   kafka:
     image: wurstmeister/kafka:2.13-2.7.0
     container_name: cinemaabyss-kafka
+    platform: linux/amd64
     depends_on:
       - zookeeper
     ports:
@@ -50,14 +49,14 @@ services:
     networks:
       - cinemaabyss-network
 
-  # Monolith Service
   monolith:
     build:
       context: ./src/monolith
       dockerfile: Dockerfile
     container_name: cinemaabyss-monolith
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
@@ -66,14 +65,14 @@ services:
     networks:
       - cinemaabyss-network
 
-  # Movies Microservice
   movies-service:
     build:
       context: ./src/microservices/movies
       dockerfile: Dockerfile
     container_name: cinemaabyss-movies-service
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "8081:8081"
     environment:
@@ -82,7 +81,6 @@ services:
     networks:
       - cinemaabyss-network
 
-  # Events Microservice
   events-service:
     build:
       context: ./src/microservices/events
@@ -98,8 +96,8 @@ services:
       KAFKA_BROKERS: kafka:9092
     networks:
       - cinemaabyss-network
+    restart: on-failure
 
-  # Proxy Service (API Gateway)
   proxy-service:
     build:
       context: ./src/microservices/proxy
@@ -121,7 +119,6 @@ services:
     networks:
       - cinemaabyss-network
 
-  # Kafka UI for monitoring Kafka
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: cinemaabyss-kafka-ui

@@ -2,69 +2,84 @@ name: API Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, cinema ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to run tests against'
-        required: true
-        default: 'docker'
-        type: choice
-        options:
-          - local
-          - docker
-      test_folder:
-        description: 'Test folder to run (leave empty for all)'
-        required: false
-        type: string
 
 jobs:
   api-tests:
     name: Run API Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Docker Compose
         run: |
-          docker compose --version
-      
-      - name: Start services with Docker Compose
+          docker compose version
+
+      - name: Start all services
         run: |
-          docker compose up -d
-          # Wait for services to be ready
+          docker compose up -d --build
           echo "Waiting for services to be ready..."
-          sleep 120
-      
+          sleep 60
+
+      - name: Check containers status
+        run: |
+          echo "=== Container Status ==="
+          docker compose ps
+          echo ""
+          echo "=== Kafka Logs ==="
+          docker compose logs --tail=30 kafka
+          echo ""
+          echo "=== Zookeeper Logs ==="
+          docker compose logs --tail=30 zookeeper
+
+      - name: Wait for Kafka
+        run: |
+          echo "Waiting for Kafka to be ready..."
+          for i in {1..20}; do
+            if docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1; then
+              echo "Kafka is ready!"
+              break
+            fi
+            echo "Waiting for Kafka... ($i/20)"
+            sleep 5
+          done
+
+      - name: Check services health
+        run: |
+          echo "Checking services health..."
+          curl -f http://localhost:8080/health || echo "Monolith not ready"
+          curl -f http://localhost:8081/api/movies/health || echo "Movies service not ready"
+          curl -f http://localhost:8000/health || echo "Proxy service not ready"
+          curl -f http://localhost:8082/api/events/health || echo "Events service not ready"
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: tests/postman/package-lock.json
-      
-      - name: Install Newman and dependencies
+
+      - name: Install Newman
         working-directory: tests/postman
         run: npm install
-      
+
       - name: Run API tests
         working-directory: tests/postman
         run: |
+          npm test
 
-          docker compose up -d
-          # Wait for services to be ready
-          echo "Waiting for services to be ready..."
-          sleep 15
-          # Build the Docker image
-          docker build -t cinemaabyss-api-tests .
-          
-          # Run the tests in Docker
-          docker run --network=cinemaabyss-network -v "$(pwd)/reports:/app/reports" cinemaabyss-api-tests
-        
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: tests/postman/newman-report.json
+          retention-days: 7
       
       - name: Stop services
         if: always()
